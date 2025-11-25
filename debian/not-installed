@@ -3,10 +3,12 @@ usr/share/doc/libcupsfilters/INSTALL
 usr/share/doc/libcupsfilters/ABOUT-NLS
 usr/share/doc/libcupsfilters/DEVELOPING.md
 usr/share/doc/libcupsfilters/CONTRIBUTING.md
+usr/share/doc/libcupsfilters/INSTALL.md
 # Not actually needed
 usr/share/doc/libcupsfilters/CHANGES-1.x.md
 # Reflected in d/copyright
 usr/share/doc/libcupsfilters/COPYING
+usr/share/doc/libcupsfilters/LICENSE
 # Install by dh_installdocs
 #usr/share/doc/libcupsfilters/AUTHORS
 #usr/share/doc/libcupsfilters/README.md

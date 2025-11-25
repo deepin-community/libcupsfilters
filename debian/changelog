@@ -1,3 +1,27 @@
+libcupsfilters (2.1.1-2) unstable; urgency=medium
+
+  * CVE-2025-64503
+    fix an out of bounds write vulnerability when processing crafted
+    PDF files containing a large 'Mediabox' value.
+    (Closes: #1120697)
+
+  * CVE-2025-57812
+    fix an out of bounds read/write vulnerability in the processing
+    of TIFF image files.
+    (Closes: #1120703)
+
+ -- Thorsten Alteholz <debian@alteholz.de>  Thu, 20 Nov 2025 10:45:05 +0100
+
+libcupsfilters (2.1.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control: bump standard to 4.7.2 (no changes)
+  * CVE-2024-47076.patch was applied upstream
+  * took care of quilt control dir (Closes: #1119722)
+    thanks to Bastian Germann for drawing attention to this
+
+ -- Thorsten Alteholz <debian@alteholz.de>  Wed, 19 Nov 2025 15:50:33 +0100
+
 libcupsfilters (2.0.0-3) unstable; urgency=medium
 
   * CVE-2024-47076 (Closes: #1082821)

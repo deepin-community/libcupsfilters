@@ -10,7 +10,7 @@ doc_DATA = \
 	COPYING \
 	CHANGES.md \
 	CHANGES-1.x.md \
-	INSTALL \
+	INSTALL.md \
 	LICENSE \
 	NOTICE \
 	README.md \
@@ -91,6 +91,8 @@ pkgfiltersinclude_DATA = \
 
 lib_LTLIBRARIES = libcupsfilters.la
 
+check_SCRIPTS = cupsfilters/testfilters.sh
+
 check_PROGRAMS = \
 	testcmyk \
 	testdither \
@@ -101,14 +103,17 @@ check_PROGRAMS = \
 	testpdf2 \
 	test-analyze \
 	test-pdf \
-	test-ps
+	test-ps \
+	testfilters
+
 TESTS = \
 	testdither \
 	testpdf1 \
 	testpdf2 \
 	test-analyze \
 	test-pdf \
-	test-ps
+	test-ps \
+	cupsfilters/testfilters.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
 #	testimage # requires also some ppm file as argument
@@ -135,6 +140,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/cmyk.c \
 	cupsfilters/colord.c \
 	cupsfilters/colormanager.c \
+	cupsfilters/testfilters.c \
 	cupsfilters/debug.c \
 	cupsfilters/debug-internal.h \
 	cupsfilters/dither.c \
@@ -167,6 +173,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
 	cupsfilters/ipp.c \
+	cupsfilters/libcups2.c \
+	cupsfilters/libcups2-private.h \
 	cupsfilters/lut.c \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
@@ -234,7 +242,7 @@ libcupsfilters_la_LDFLAGS = \
 	-version-info 2
 if BUILD_DBUS
 libcupsfilters_la_CFLAGS += $(DBUS_CFLAGS) -DHAVE_DBUS
-libcupsfilters_CXXFLAGS = -std=c++0x $(libcupsfilters_CFLAGS)   # -std=c++11
+libcupsfilters_la_CXXFLAGS = -std=c++11 $(libcupsfilters_la_CFLAGS)   # -std=c++11
 libcupsfilters_la_LIBADD += $(DBUS_LIBS)
 endif
 
@@ -309,11 +317,31 @@ test_pdf_LDADD = libcupsfilters.la
 test_ps_SOURCES = cupsfilters/fontembed/test-ps.c
 test_ps_LDADD = libcupsfilters.la
 
+testfilters_SOURCES = \
+	cupsfilters/testfilters.c \
+	$(pkgfiltersinclude_DATA)
+
+testfilters_LDADD = \
+	libcupsfilters.la \
+	-lm -ldl -lcups
+
+testfilters_LDFLAGS = \
+	-D_GNU_SOURCE \
+	-L/usr/lib
+
 EXTRA_DIST += \
+	$(check_SCRIPTS) \
 	$(pkgfiltersinclude_DATA) \
 	cupsfilters/image.pgm \
 	cupsfilters/image.ppm \
-	cupsfilters/fontembed/README
+	cupsfilters/fontembed/README \
+	cupsfilters/test-filter-cases.txt \
+	cupsfilters/test_files/bashrc.urf \
+	cupsfilters/test_files/test_file.pdf \
+	cupsfilters/test_files/test_file.pwg \
+	cupsfilters/test_files/test_file_1pg.pdf \
+	cupsfilters/test_files/test_file_2pg.pdf \
+	cupsfilters/test_files/test_file_4pg.pdf
 
 # =========
 # CUPS Data

@@ -13,9 +13,11 @@
 #include <stdarg.h>
 #include <math.h>
 #include <errno.h>
-#include "ipp.h"
-#include "ipp.h"
-#include "raster.h"
+#include <cupsfilters/ipp.h>
+#include <cupsfilters/filter.h>
+#include <cupsfilters/pdf.h>
+#include <cupsfilters/raster.h>
+#include <cupsfilters/libcups2-private.h>
 
 #ifndef HAVE_OPEN_MEMSTREAM
 #include <fcntl.h>
@@ -26,8 +28,6 @@
 #include <cups/cups.h>
 #include <cups/pwg.h>
 
-#include "filter.h"
-#include "pdf.h"
 
 typedef enum banner_info_e
 {
@@ -63,9 +63,12 @@ banner_free(banner_t *banner)
 {
   if (banner)
   {
-    free(banner->template_file);
-    free(banner->header);
-    free(banner->footer);
+    if (banner->template_file)
+      free(banner->template_file);
+    if (banner->header)
+      free(banner->header);
+    if (banner->footer)
+      free(banner->footer);
     free(banner);
   }
 }
@@ -224,7 +227,12 @@ banner_new_from_file(const char *filename,
       break;
   }
 
-  banner = calloc(1, sizeof *banner);
+  if ((banner = calloc(1, sizeof *banner)) == NULL)
+  {
+    if (log)
+      log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Not enough memory");
+    goto out;
+  }
 
   while (getline(&line, &len, f) != -1)
   {
@@ -248,12 +256,12 @@ banner_new_from_file(const char *filename,
       while (*key == '%')
 	key ++;
 
-    if (!strcasecmp(key, "template"))
+    if (!banner->template_file && !strcasecmp(key, "template"))
       banner->template_file = template_path(value, datadir);
-    else if (!strcasecmp(key, "header"))
+    else if (!banner->header && !strcasecmp(key, "header"))
       banner->header = strdup(value);
-    else if (!strcasecmp(key, "footer"))
-      banner->header = strdup(value);
+    else if (!banner->footer && !strcasecmp(key, "footer"))
+      banner->footer = strdup(value);
     else if (!strcasecmp(key, "font"))
       *num_options = cupsAddOption("banner-font",
 				   strdup(value), *num_options, options);
@@ -914,7 +922,7 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   // Copy the input data stream into a temporary file...
   //
 
-  if ((tempfd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+  if ((tempfd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterBannerToPDF: Unable to copy input file: %s",
@@ -1003,6 +1011,8 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   banner_free(banner);
   if (options) cupsFreeOptions(num_options, options);
   unlink(tempfile);
+  if (inputfp)
+    fclose(inputfp);
   
   return (ret);
 }

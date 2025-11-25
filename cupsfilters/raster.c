@@ -27,13 +27,15 @@
 #include <string.h>
 #include <ctype.h>
 #include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 #include <cups/pwg.h>
+#include <stdbool.h>
 
 //
 // Local functions
 //
 
-static int raster_base_header(cups_page_header2_t *h, cf_filter_data_t *data,
+static int raster_base_header(cups_page_header_t *h, cf_filter_data_t *data,
 			      int pwg_raster);
 
 //
@@ -172,7 +174,7 @@ cfRasterColorSpaceString(cups_cspace_t cspace)	// I - cupsColorSpace value
 
 int                                             // O  -  0 on success,
 						//      -1 on error
-cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
+cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 			cf_filter_data_t *data, // I  - Job and printer data
 			cf_filter_out_format_t final_outformat,
                                                 // I  - Job output format
@@ -372,10 +374,31 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
   else if (size_name_buf[0])
     _strlcpy(h->cupsPageSizeName, size_name_buf, sizeof(h->cupsPageSizeName));
 
-  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
-			       &(margins[0]), &(margins[1]),
-			       &(margins[2]), &(margins[3]),
-			       log, ld);
+  log(ld, CF_LOGLEVEL_DEBUG, "Format of the input document: %s", data->content_type);
+  if (data->content_type == NULL ||
+      (strcmp(data->content_type, "application/postscript") &&
+       strcmp(data->content_type, "application/vnd.cups-postscript") &&
+       strcmp(data->content_type, "application/pdf") &&
+       strcmp(data->content_type, "application/vnd.cups-pdf") &&
+       strcmp(data->content_type, "application/vnd.cups-raster") &&
+       strcmp(data->content_type, "image/pwg-raster") &&
+       strcmp(data->content_type, "image/urf")))
+  {
+    // The input format of the document does not define the sizes of the
+    // input pages in absolute dimensions, so if no output page size
+    // is defined, fall back to US Letter
+    log(ld, CF_LOGLEVEL_DEBUG,
+	"Document's input format does not provide absolute size dimensions for each page, falling back to US Letter if no output page size is provided.");
+    cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
+				 &(margins[0]), &(margins[1]),
+				 &(margins[2]), &(margins[3]),
+				 log, ld);
+  }
+  else
+  {
+    log(ld, CF_LOGLEVEL_DEBUG,
+	"Document's input format provides absolute size dimensions for each page, using these if no output page size is provided.");
+  }
 
   if (!cupsrasterheader)
     memset(margins, 0, sizeof(margins)); 
@@ -554,7 +577,7 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
 
 int                                             // O  -  0 on success,
 						//      -1 on error
-cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
+cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
 			const char *available,  // I  - Available color spaces
 						//      from IPP attribute
 						//      urf-supported or
@@ -581,7 +604,7 @@ cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
   int cspace_fallback = 0; // 0: originally requested color space
 			   // 1: sRGB for color, sGray for mono
 			   // 2: sRGB for mono
-  const char *p, *q;
+  const char *p, *q = NULL;
 
   // Range-check
   if (!h || !available || !cspace)
@@ -791,7 +814,7 @@ cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
 
 
 static int                                 // O - -1 on error, 0 on success
-raster_base_header(cups_page_header2_t *h, // O - Raster header
+raster_base_header(cups_page_header_t *h,  // O - Raster header
 		   cf_filter_data_t *data, // I - Filter data
 		   int pwg_raster)         // I - 1 if PWG/Apple Raster
 {
@@ -890,7 +913,7 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
   // Initialize header
   //
 
-  memset(h, 0, sizeof(cups_page_header2_t));
+  memset(h, 0, sizeof(cups_page_header_t));
 
   //
   // Fill in the items using printer and job IPP attributes and options
@@ -1419,41 +1442,46 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
   // TODO - Support for MediaType number
   h->cupsMediaType = 0;
 
-  // Only for CUPS Raster, if we do not have a sample header from a PPD file
-  if (pwg_raster == 0 &&
-      ((val = cupsGetOption("pwg-raster-document-type", num_options,
-			    options)) != NULL ||
-       (val = cupsGetOption("PwgRasterDocumentType", num_options,
-			    options)) != NULL ||
-       (val = cupsGetOption("color-space", num_options, options)) != NULL ||
-       (val = cupsGetOption("ColorSpace", num_options, options)) != NULL ||
-       (val = cupsGetOption("color-model", num_options, options)) != NULL ||
-       (val = cupsGetOption("ColorModel", num_options, options)) != NULL ||
-       (val = cupsGetOption("print-color-mode", num_options, options)) !=
-       NULL ||
-       (val = cupsGetOption("output-mode", num_options, options)) != NULL ||
-       (val = cupsGetOption("OutputMode", num_options, options)) != NULL ||
-       (val = cfIPPAttrEnumValForPrinter(data->printer_attrs,
-					 data->job_attrs,
-					 "print-color-mode")) != NULL))
+
+  // Do we have a color printer?
+  bool is_color =
+    ((attr = ippFindAttribute(data->printer_attrs, "color-supported",
+			      IPP_TAG_BOOLEAN)) != NULL &&
+     ippGetBoolean(attr, 0));
+
+  // Color modes
+  int numcolors = 0;		// Number of colorants
+  if ((val = cupsGetOption("pwg-raster-document-type", num_options,
+			   options)) != NULL ||
+      (val = cupsGetOption("PwgRasterDocumentType", num_options,
+			   options)) != NULL ||
+      (val = cupsGetOption("color-space", num_options, options)) != NULL ||
+      (val = cupsGetOption("ColorSpace", num_options, options)) != NULL ||
+      (val = cupsGetOption("color-model", num_options, options)) != NULL ||
+      (val = cupsGetOption("ColorModel", num_options, options)) != NULL ||
+      (val = cupsGetOption("print-color-mode", num_options, options)) !=
+      NULL ||
+      (val = cupsGetOption("output-mode", num_options, options)) != NULL ||
+      (val = cupsGetOption("OutputMode", num_options, options)) != NULL ||
+      (val = cfIPPAttrEnumValForPrinter(data->printer_attrs,
+					data->job_attrs,
+					"print-color-mode")) != NULL)
   {
     int	        bitspercolor,	// Bits per color
                 bitsperpixel,   // Bits per pixel
-                colorspace,     // CUPS/PWG raster color space
-                numcolors;	// Number of colorants
+                colorspace;     // CUPS/PWG raster color space;
     const char	*ptr;		// Pointer into value
 
     ptr = NULL;
-    numcolors = 0;
     bitspercolor = 8;
-    if (!strncasecmp(val, "AdobeRgb", 8))
+    if (is_color && !strncasecmp(val, "AdobeRgb", 8))
     {
       if (*(val + 8) == '_' || *(val + 8) == '-')
 	ptr = val + 9;
       colorspace = 20;
       numcolors = 3;
     }
-    else if (!strncasecmp(val, "adobe-rgb", 9))
+    else if (is_color && !strncasecmp(val, "adobe-rgb", 9))
     {
       if (*(val + 9) == '_' || *(val + 9) == '-')
 	ptr = val + 10;
@@ -1499,19 +1527,19 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
       colorspace = 18;
       numcolors = 1;
     }
-    else if (!strcasecmp(val, "color"))
+    else if (is_color && !strcasecmp(val, "color"))
     {
       colorspace = 19;
       numcolors = 3;
     }
-    else if (!strncasecmp(val, "Cmyk", 4))
+    else if (is_color && !strncasecmp(val, "Cmyk", 4))
     {
       if (*(val + 4) == '_' || *(val + 4) == '-')
 	ptr = val + 5;
       colorspace = 6;
       numcolors = 4;
     }
-    else if (!strncasecmp(val, "Cmy", 3))
+    else if (!pwg_raster && is_color && !strncasecmp(val, "Cmy", 3))
     {
       if (*(val + 3) == '_' || *(val + 3) == '-')
 	ptr = val + 4;
@@ -1523,10 +1551,9 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
       ptr = val + 6;
       numcolors = strtol(ptr, (char **)&ptr, 10);
       if (*ptr == '_' || *ptr == '-')
-      {
 	ptr ++;
+      if (numcolors > 0 && numcolors < 16)
 	colorspace = 47 + numcolors;
-      }
       else
       {
 	numcolors = 0;
@@ -1544,39 +1571,49 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
     {
       if (*(val + 4) == '_' || *(val + 4) == '-')
 	ptr = val + 5;
-      colorspace = 18;
+      colorspace = pwg_raster ? 18 : 3;
       numcolors = 1;
     }
-    else if (!strncasecmp(val, "Srgb", 4))
+    else if (is_color && !strncasecmp(val, "Srgb", 4))
     {
       if (*(val + 4) == '_' || *(val + 4) == '-')
 	ptr = val + 5;
       colorspace = 19;
       numcolors = 3;
     }
-    else if (!strncasecmp(val, "Rgbw", 4))
+    else if (!pwg_raster && is_color && !strncasecmp(val, "Rgbw", 4))
     {
       if (*(val + 4) == '_' || *(val + 4) == '-')
 	ptr = val + 5;
       colorspace = 17;
       numcolors = 4;
     }
-    else if (!strncasecmp(val, "Rgb", 3))
+    else if (is_color && !strncasecmp(val, "Rgb", 3))
     {
       if (*(val + 3) == '_' || *(val + 3) == '-')
 	ptr = val + 4;
-      colorspace = 1;
+      colorspace = pwg_raster ? 19 : 1;
       numcolors = 3;
     }
     else if (!strcasecmp(val, "auto"))
     {
       // Let "auto" not look like an error
-      colorspace = 19;
-      numcolors = 3;
+      if (is_color)
+      {
+	colorspace = 19;
+	numcolors = 3;
+      }
+      else
+      {
+	colorspace = 18;
+	numcolors = 1;
+      }
     }
+
+    // Color mode found
     if (numcolors > 0)
     {
-      if (ptr)
+      if (ptr && *ptr)
 	bitspercolor = strtol(ptr, (char **)&ptr, 10);
       bitsperpixel = bitspercolor * numcolors;
       // In 1-bit-per-color RGB modes we add a forth bit to each pixel
@@ -1589,20 +1626,25 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
       h->cupsColorSpace = colorspace;
       h->cupsNumColors = numcolors;
     }
-    else
+  }
+
+  // No color mode found
+  if (numcolors == 0)
+  {
+    if (is_color)
     {
       h->cupsBitsPerColor = 8;
       h->cupsBitsPerPixel = 24;
       h->cupsColorSpace = 19;
       h->cupsNumColors = 3;
     }
-  }
-  else
-  {
-    h->cupsBitsPerColor = 8;
-    h->cupsBitsPerPixel = 24;
-    h->cupsColorSpace = 19;
-    h->cupsNumColors = 3;
+    else
+    {
+      h->cupsBitsPerColor = 8;
+      h->cupsBitsPerPixel = 8;
+      h->cupsColorSpace = 18;
+      h->cupsNumColors = 1;
+    }
   }
 
   // TODO - Support for color orders 1 (banded) and 2 (planar)

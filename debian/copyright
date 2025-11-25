@@ -42,7 +42,7 @@ Copyright: 1999-2003, Jeff Licquia <licquia@debian.org>
   2007-2012, Martin Pitt <mpitt@debian.org>
   2012-2024, Till Kamppeter <till.kamppeter@gmail.com>
   2013-2021, Didier Raboud <odyx@debian.org>
-  2021-2024, Thorsten Alteholz <debian@alteholz.de>
+  2021-2025, Thorsten Alteholz <debian@alteholz.de>
 License: GPL-2+
 
 Files: debian/local/apport-hook.py
