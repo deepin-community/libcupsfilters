@@ -1,5 +1,227 @@
-template-repository (1.0-1) unstable; urgency=medium
+libcupsfilters (2.0.0-3) unstable; urgency=medium
 
-  * Initial release
+  * CVE-2024-47076 (Closes: #1082821)
+    cfGetPrinterAttributes5(): Validate response attributes before return
+  * temporarily disable libcupsfilters-2-functionality for now
 
- -- Tsic404 <liuheng@deepin.org>  Sat, 28 Jan 2023 13:46:49 +0800
+ -- Thorsten Alteholz <debian@alteholz.de>  Thu, 26 Sep 2024 23:45:05 +0200
+
+libcupsfilters (2.0.0-2) unstable; urgency=medium
+
+  * debian/control: add proper Conflicts: for cups-filters packages
+                    (Closes: #1069630)
+  * debian/tests: use dependencies for version 2
+
+ -- Thorsten Alteholz <debian@alteholz.de>  Sat, 14 Sep 2024 22:45:05 +0200
+
+libcupsfilters (2.0.0-1) unstable; urgency=medium
+
+  * first Debian upload
+  * do not use symbols file at the moment
+  * update debian/watch file
+
+ -- Thorsten Alteholz <debian@alteholz.de>  Sat, 20 Apr 2024 22:45:05 +0200
+
+libcupsfilters (2.0.0-0ubuntu1) mantic; urgency=medium
+
+  * New upstream release.
+    - Final release with further bug fixes
+    - cfFilterUniversal() also supports application/vnd.cups-postscript
+      as input format now, treating it as application/postscript.
+    - Do not confuse XPrinter with Xerox' XPrint models.
+    - Use correct resolution in Raster header for Apple Raster.
+  * Removed patches, fixes are included in the upstream code.
+  * Updated debian/libcupsfilters2.symbols
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Mon, 25 Sep 2023 12:45:05 +0200
+
+libcupsfilters (2.0~rc1-0ubuntu4) mantic; urgency=medium
+
+  * Make libcupsfilters-tests depend on fonts-dejavu-core (LP: #2031222)
+  * Replace B-D libfontconfig1-dev with libfontconfig-dev
+  * Add pkg-kde-tools to Build-Depends
+  * Update debian/libcupsfilters2.symbols using pkgkde-symbolshelper
+
+ -- Gunnar Hjalmarsson <gunnarhj@ubuntu.com>  Sat, 12 Aug 2023 21:05:20 +0200
+
+libcupsfilters (2.0~rc1-0ubuntu3) mantic; urgency=medium
+
+  * libcupsfilters2.symbols: Added 2 riscv64-only symbols with (otional).
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Mon,  5 Jun 2023 23:59:59 +0200
+
+libcupsfilters (2.0~rc1-0ubuntu2) mantic; urgency=medium
+
+  * ignore-unsupported-resolution-values.patch: If resolutions not supported
+    by the printer are supplied alog with a job via "Resolution" or
+    "printer-resolution", ignore them to prevent rasterization in the
+    wrong resolution and garbage printed (Upstream issue #29, LP: #2022929).
+  * cfippattrresolutionforprinter-resolution-list-not-ipp-range.patch:
+    When searching for the "printer-resolution-supported" printer IPP
+    attribute, do not consider it an IPP range type, as it is not, and
+    so would not be found (LP: #2022929).
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Mon,  5 Jun 2023 19:19:19 +0200
+
+libcupsfilters (2.0~rc1-0ubuntu1) lunar; urgency=medium
+
+  * New upstream release 2.0rc1.
+    - Release candidate 1
+    - Result of intense tests and fixes for many reported bugs
+    - Final libcupsfilters2 API
+    - Especially many fixes on page orientation, printing text in landscape,
+      image scaling, page size handling.
+  * Updated debian/libcupsfilters2.symbols.
+    On the diff from build log did
+     - s/^+#MISSING: <version># \(optional\)/+ (optional)/
+    to conserve the entries of other architectures. As the upstream
+    release did not have any C++ changes, there remain only actual
+    symbol changes.
+  * Updated debian/NEWS.
+  * Made libcupsfilters-2-functionality more reliable when checking
+    output directories.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Tue, 11 Apr 2023 20:28:45 +0200
+
+libcupsfilters (2.0~b4-0ubuntu6) lunar; urgency=medium
+
+  * debian/rules: Fixed install paths for Debian/Ubuntu-customized print
+    test pages (LP: #2013096).
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Thu, 30 Mar 2023 23:22:16 +0200
+
+libcupsfilters (2.0~b4-0ubuntu5) lunar; urgency=medium
+
+  * riscv64 Launchpad build failed due to symbols. Extracted patch from build
+    log, edited it:
+      - s/^+#MISSING: <version># /+ /
+      - s/^+ _/+ (optional)_/
+    This makes all symbols which are different on riscv64 compared to
+    the other architectures optional.
+  * Updated debian/NEWS.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Fri, 24 Feb 2023 09:13:16 +0100
+
+libcupsfilters (2.0~b4-0ubuntu4) lunar; urgency=medium
+
+  * Explicitly build the test programs for the autopkgtest, as on riscv64
+    no "make check" is run.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Fri, 24 Feb 2023 00:22:16 +0100
+
+libcupsfilters (2.0~b4-0ubuntu3) lunar; urgency=medium
+
+  * Marked some symbols of the initial creation of
+    debian/libcupsfilters2.symbols (on amd64) as (optional) as they
+    are missing on armhf, having led to another failure of the armhf
+    build on Launchpad.
+  * Updated debian/NEWS.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Thu, 23 Feb 2023 22:43:16 +0100
+
+libcupsfilters (2.0~b4-0ubuntu2) lunar; urgency=medium
+
+  * Added extra symbols from armhf to the debian/libcupsfilters2.symbols
+    file, as (optional). Used the diffs from the buildlog of the failed build
+    of 2.0~b4-0ubuntu1 on Launchpad.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Thu, 23 Feb 2023 22:14:16 +0100
+
+libcupsfilters (2.0~b4-0ubuntu1) lunar; urgency=medium
+
+  * New upstream release 2.0b4.
+  * Removed upstream patch gs-pxlmono-icc-profile-fix.patch
+  * Added new autopkgtest which builds the test programs used by
+    "make check" but runs them on the system's libcupsfilters. To make the
+    test programs ("test...") available for autopkgtests we compile them while
+    building the package and then provide them (with their auxiliary files) in
+    the new libcupsfilters-tests binary package.
+  * Applied KDE symbolshelper to debian/libcupsfilters2.symbols.
+  * Updated debian/NEWS with more detailed info about the
+    debian/libcupsfilters2.symbols file.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Thu, 23 Feb 2023 17:23:16 +0100
+
+libcupsfilters (2.0~b2-0ubuntu11) lunar; urgency=medium
+
+  * Rebuild against latest tiff
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sat, 04 Feb 2023 21:44:00 -0500
+
+libcupsfilters (2.0~b2-0ubuntu10) lunar; urgency=medium
+
+  * debian/tests/control: autopkgtest needs libcups2-dev installed, added
+    dependency.
+  * Fixed cfFilterGhostscript() filter function to select the correct
+    ICC profile for PCL-XL output (backported from upstream).
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Thu, 26 Jan 2023 14:00:07 -0300
+
+libcupsfilters (2.0~b2-0ubuntu9) lunar; urgency=medium
+
+  * Fix debian/copyright syntax.
+  * Fix stale standards-version.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Wed, 25 Jan 2023 21:37:07 -0300
+
+libcupsfilters (2.0~b2-0ubuntu8) lunar; urgency=medium
+
+  * Try harder to fix symbols accross architectures...
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Wed, 25 Jan 2023 15:35:29 +0100
+
+libcupsfilters (2.0~b2-0ubuntu7) lunar; urgency=medium
+
+  * Include one extra symbol on riscv...
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Wed, 25 Jan 2023 12:32:38 +0100
+
+libcupsfilters (2.0~b2-0ubuntu6) lunar; urgency=medium
+
+  * Try to fix also the symbols on risv
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Wed, 25 Jan 2023 11:37:03 +0100
+
+libcupsfilters (2.0~b2-0ubuntu5) lunar; urgency=medium
+
+  * Updated the symbols to fix the build on armhf
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Wed, 25 Jan 2023 10:11:22 +0100
+
+libcupsfilters (2.0~b2-0ubuntu4) lunar; urgency=low
+
+  * debian/copyright: autotools-generated files can be included under the
+    license of the upstream code, and FSF copyright added to upstream
+    copyright list. Simplified debian/copyright appropriately.
+  * Corrected typos in debian/control.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Wed, 18 Jan 2023 15:54:07 -0300
+
+libcupsfilters (2.0~b2-0ubuntu3) lunar; urgency=low
+
+  * debian/copyright: Added missing names, added entry for apport-hook.py
+    file, updated for 2023.
+  * Removed debian/fix.scanned.copyright file.
+  * Mention correct package name in header comment of apport-hook.py.
+  * Removed unnecessary build dependencies on libavahi-glib-dev,
+    dh-apparmor, libijs-dev, libldap2-dev, sharutils and added missing
+    libfreetype-dev
+  * Added simple autopkgtest, tests building a program with this
+    library: pkg-config, headers, compiling ...
+  * Generated debian/libcupsfilters2.symbols file.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Tue, 17 Jan 2023 17:03:07 -0300
+
+libcupsfilters (2.0~b2-0ubuntu2) lunar; urgency=low
+
+  * Build without debian/libcupsfilters2.symbols
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Tue, 10 Jan 2023 12:27:07 -0300
+
+libcupsfilters (2.0~b2-0ubuntu1) lunar; urgency=low
+
+  * Initial Release. From the second generation on (2.x), cups-filters
+    upstream is split into libcupsfilters, libppd, cups-filters,
+    braille-printer-app, and cups-browsed. This package is libcupsfilters.
+
+ -- Till Kamppeter <till.kamppeter@gmail.com>  Mon,  9 Jan 2023 21:57:07 -0300
