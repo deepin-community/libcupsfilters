@@ -1,4 +1,69 @@
 #!/usr/bin/make -f
 
+include /usr/share/dpkg/architecture.mk
+
+derives_from_ubuntu := $(shell (dpkg-vendor --derives-from Ubuntu && echo "yes") || echo "no")
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
 %:
-	dh $@
+	dh $@ --with pkgkde_symbolshelper
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		--disable-silent-rules \
+		--with-shell=/bin/sh \
+		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
+		--mandir=/usr/share/man \
+		--enable-static \
+		--enable-mutool \
+		--with-mutool-path=/usr/bin/mutool \
+		--with-test-font-path=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+
+override_dh_auto_build:
+	dh_auto_build
+	# Compile test programs for autopkgtest. Usually they get compiled
+	# by the "make check" run, but this is omitted (only) on riscv64
+	# ('dh: command-omitted: The call to "dh_auto_test -a" was omitted
+	#   due to "DEB_BUILD_OPTIONS=nocheck"' in buildlog)
+	make testdither testpdf1 testpdf2 test-analyze test-pdf test-ps testcmyk testrgb
+
+override_dh_makeshlibs:
+	dh_makeshlibs -- -c4
+
+override_dh_auto_clean:
+	[ ! -r Makefile ] || make distclean
+
+override_dh_install:
+	dh_install
+	# Install test programs for autopkgtest, binary package
+	# libcupsfilters-tests
+	install -d -m 755 debian/libcupsfilters-tests/usr/bin
+	install -m 755 .libs/test* debian/libcupsfilters-tests/usr/bin/
+	install -D -m 644 cupsfilters/image.pgm debian/libcupsfilters-tests/usr/share/libcupsfilters-tests/image.pgm
+	install -D -m 644 cupsfilters/image.pgm debian/libcupsfilters-tests/usr/share/libcupsfilters-tests/image.ppm
+ifeq ($(derives_from_ubuntu),yes)
+	#  - Install Apport hook
+	#  - Replace standard test page template by Ubuntu-branded one
+	install -D -m 644 debian/local/apport-hook.py debian/libcupsfilters2-common/usr/share/apport/package-hooks/source_libcupsfilters.py
+	install -D -m 644 debian/local/default-testpage-ubuntu.pdf debian/libcupsfilters2-common/usr/share/cups/data/default-testpage.pdf
+else
+	mkdir -p debian/libcupsfilters2-common/usr/share/cups/data/
+	rsvg-convert debian/local/default-testpage-debian.svg -f pdf > debian/libcupsfilters2-common/usr/share/cups/data/default-testpage.pdf
+endif
+
+get-orig-source:
+	set -ex; \
+	dbranch=`git branch --show-current`; \
+	gbp import-orig --pristine-tar --uscan --no-merge --upstream-branch=upstream/latest --upstream-tag="upstream/vcs-%(version)s"; \
+	utag=`git describe --exact-match heads/upstream/latest | sed -e 's#^upstream/vcs-##'`; \
+	ucommit=`git rev-parse --verify upstream/latest`; \
+	git checkout -f upstream/latest-tarballs; \
+	git merge -Xtheirs -m "Merge $$utag from upstream's VCS" upstream/vcs-$$utag; \
+	tar --strip-components=1 -xavf ../libcupsfilters_$$utag.orig.tar.xz; \
+	git add -A .; \
+	git commit -m "$$utag tarball artifacts" || :; \
+	git tag -s -m "$$utag tarball from upstream" upstream/$$utag; \
+	git checkout $$dbranch; \
+	git debrebase new-upstream $$utag upstream/$$utag; \
+	git debrebase conclude

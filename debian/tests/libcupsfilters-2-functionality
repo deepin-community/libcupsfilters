@@ -1,0 +1,67 @@
+#!/bin/sh
+# autopkgtest check: Run "make check" test programs using libcupsfilters
+# installed on the system.
+# (C) 2012 Canonical Ltd.
+# (C) 2023 Till Kamppeter
+# Authors: Martin Pitt, Till Kamppeter
+
+set -eux
+
+package=libcupsfilters
+WORKDIR="$(mktemp -d)"
+export HOME="$WORKDIR"
+export XDG_RUNTIME_DIR="$WORKDIR"
+trap 'cd /; rm -rf "$WORKDIR"' 0 INT QUIT ABRT PIPE TERM
+
+# Copy test image files into right place
+cp -r /usr/share/libcupsfilters-tests cupsfilters
+
+# Run the test programs and check the output files
+/usr/bin/testdither > out
+echo "run test program 'testdither' on system's $package: OK"
+file out | grep -qi 'netpbm image data'
+echo "check output file ($package): OK"
+
+/usr/bin/testpdf1 > out
+echo "run test program 'testpdf1' on system's $package: OK"
+file out | grep -q 'PDF document'
+echo "check output file ($package): OK"
+
+/usr/bin/testpdf2 > out
+echo "run test program 'testpdf2' on system's $package: OK"
+file out | grep -q 'PDF document'
+echo "check output file ($package): OK"
+
+/usr/bin/test-analyze > out
+echo "run test program 'test-analyze' on system's $package: OK"
+file out | grep -q 'ASCII text'
+echo "check output file ($package): OK"
+
+/usr/bin/test-pdf
+echo "run test program 'test-pdf' on system's $package: OK"
+file test.pdf | grep -q 'PDF document'
+echo "check output file ($package): OK"
+
+/usr/bin/test-ps
+echo "run test program 'test-ps' on system's $package: OK"
+file test.ps | grep -q 'PostScript document'
+echo "check output file ($package): OK"
+
+cd cupsfilters
+rm -rf test
+/usr/bin/testcmyk
+echo "run test program 'testcmyk' on system's $package: OK"
+ls -1 test
+ls -1 test | wc -l
+ls -1 test | wc -l | grep -q '^58$'
+echo "check output directory ($package): OK"
+
+rm -rf test
+/usr/bin/testrgb
+echo "run test program 'testrgb' on system's $package: OK"
+ls -1 test
+ls -1 test | wc -l
+ls -1 test | wc -l | grep -q '^10$'
+echo "check output directory ($package): OK"
+rm -rf test
+cd ..
